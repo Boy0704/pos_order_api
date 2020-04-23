@@ -81,6 +81,86 @@ class App extends CI_Controller {
         echo json_encode(array('a'=>'berhasil'));
     }
 
+    public function upload_excel()
+    {
+        unlink('upload/import_data.xlsx');
+        include APPPATH.'third_party/PHPExcel/PHPExcel.php';
+
+        // Fungsi untuk melakukan proses upload file
+        $return = array();
+        $this->load->library('upload'); // Load librari upload
+            
+        $config['upload_path'] = './upload/';
+        $config['allowed_types'] = 'xlsx';
+        $config['max_size'] = '2048';
+        $config['overwrite'] = true;
+        $config['file_name'] = 'import_data';
+    
+        $this->upload->initialize($config); // Load konfigurasi uploadnya
+        if($this->upload->do_upload('uploadexcel')){ // Lakukan upload dan Cek jika proses upload berhasil
+            // Jika berhasil :
+            $return = array('result' => 'success', 'file' => $this->upload->data(), 'error' => '');
+            // return $return;
+        }else{
+            // Jika gagal :
+            $return = array('result' => 'failed', 'file' => '', 'error' => $this->upload->display_errors());
+            // return $return;
+        }
+        // print_r($return);exit();
+        
+        $excelreader = new PHPExcel_Reader_Excel2007();
+        $loadexcel = $excelreader->load('upload/import_data.xlsx'); // Load file yang telah diupload ke folder excel
+        $sheet = $loadexcel->getActiveSheet()->toArray(null, true, true ,true);
+        // Buat sebuah variabel array untuk menampung array data yg akan kita insert ke database
+        $data = array();
+
+    
+        $numrow = 1;
+        foreach($sheet as $row){
+            // Cek $numrow apakah lebih dari 1
+            // Artinya karena baris pertama adalah nama-nama kolom
+            // Jadi dilewat saja, tidak usah diimport
+            
+            if($numrow > 1){
+                // Kita push (add) array data ke variabel data
+                
+                // $actualdate_du = date('Y-m-d',$temp_du);
+                array_push($data, array(
+                    'invoice' => $row['A'],
+                    'tanggal_order' => $row['B'],
+                    'produk' => $row['C'],
+                    'sku' => $row['D'],
+                    'varian' => $row['E'],
+                    'sales' => $row['F'],
+                    'qty' => $row['G'],
+                    'total_order' => $row['H'],
+                    'customer' => $row['I'],
+                    'no_telp' => $row['J'],
+                    'alamat_customer' => $row['K'],
+                    'kategori_customer' => $row['L'],
+                    'kurir' => $row['M'],
+                    'biaya_kirim' => $row['N'],
+                    'status_kirim' => '',
+                    'status_bayar' => '',
+                    'date_create' => get_waktu()
+                   
+                ));
+            }
+            
+            $numrow++; // Tambah 1 setiap kali looping
+        }
+        // echo "<pre>";
+        // print_r($data);exit;
+
+        // Panggil fungsi insert_multiple yg telah kita buat sebelumnya di model
+        $this->db->insert_batch('pos_order', $data);
+        
+        $this->session->set_flashdata('message',alert_biasa('Import data excel berhasil','success'));
+        redirect('pos_order','refresh');
+
+        
+    }
+
     
 
 
